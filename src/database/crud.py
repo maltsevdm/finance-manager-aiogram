@@ -3,9 +3,8 @@ from typing import Optional
 
 from sqlalchemy import select, update, delete
 
-from database import models
-from database.db import SessionLocal, engine
-from database.models import User, Base
+from src.database import models
+from src.database.db import SessionLocal
 
 
 def add_user(user_id: int, name: str):
@@ -28,7 +27,8 @@ def get_balance(user_id: int) -> int:
 
 def update_balance(user_id: int, new_balance: int):
     with SessionLocal() as db:
-        stmt = update(models.User).values(balance=new_balance).filter_by(id=user_id)
+        stmt = update(
+            models.User).values(balance=new_balance).filter_by(id=user_id)
         db.execute(stmt)
         db.commit()
 
