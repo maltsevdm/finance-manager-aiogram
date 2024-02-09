@@ -1,13 +1,14 @@
 import json
 
 from aiogram import Router, F
-from aiogram.filters import Command, StateFilter
+from aiogram.enums import ParseMode
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+from aiogram.utils.formatting import Text
 
 from config import cookie_key
 from src.services.categories import CategoriesService
-
 from src.services.auth import AuthService
 from src.services.transactions import TransactionsService
 from src.utils import kb
@@ -30,8 +31,8 @@ with open('users_db.json', encoding='utf-8') as file:
 async def start_handler(msg: Message):
     user_id = msg.from_user.id
     if user_id in users:
-        await msg.answer(f'Привет, {users[user_id]["username"]}!.',
-                         reply_markup=kb.main_menu())
+        content = Text(f'Привет, {users[user_id]["username"]}!.')
+        await msg.answer(**content.as_kwargs(), reply_markup=kb.main_menu())
     else:
         await msg.answer('Привет! Вы не авторизованы.', reply_markup=kb.auth())
 
@@ -76,18 +77,17 @@ async def get_summary(msg: Message, state: FSMContext):
 
     delta = incomes - expenses
     if delta > 0:
-        delta_emodji = '🟢'
+        delta_emoji = '🟢'
     elif delta == 0:
-        delta_emodji = '🟡'
+        delta_emoji = '🟡'
     else:
-        delta_emodji = '🔴'
+        delta_emoji = '🔴'
 
-    answer_text = f'''💰 Баланс: {balance} рублей
-⬇ Доходы: {incomes} рублей
-⬆ Расходы: {expenses} рублей
-{delta_emodji} Разница: {delta} рублей
+    answer_text = f'''▫ <b>Баланс</b>: {balance} рублей
+💰 <b>Доходы</b>: {incomes} рублей
+💸 <b>Расходы</b>: {expenses} рублей
+{delta_emoji} <b>Разница</b>: {delta} рублей
 '''
 
     await msg.answer(answer_text, reply_markup=kb.main_menu())
     await state.clear()
-
