@@ -27,10 +27,24 @@ class CategoriesService:
             return response
 
     @classmethod
-    async def get(cls, token: str, group: str) -> Response:
+    async def get_banks(cls, token: str) -> Response:
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
-                base_url + cls.prefix + f'?group={group}',
+                base_url + cls.prefix + 'banks/',
+                cookies={'CoinKeeper': token}
+            )
+            return response
+
+    @classmethod
+    async def get_ei_categories(
+            cls, token: str, group: str | None = None
+    ) -> Response:
+        url = 'ei/'
+        if group:
+            url += f'?group={group}'
+        async with httpx.AsyncClient() as ac:
+            response = await ac.get(
+                base_url + cls.prefix + url,
                 cookies={'CoinKeeper': token}
             )
             return response

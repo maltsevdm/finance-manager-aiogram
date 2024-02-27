@@ -1,7 +1,6 @@
 import json
 
 from aiogram import Router, F
-from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -25,6 +24,9 @@ router.include_router(transactions_router)
 with open('users_db.json', encoding='utf-8') as file:
     for user, data in json.load(file).items():
         users[int(user)] = data
+
+with open('src/utils/summary_template.txt', encoding='utf-8') as file:
+    summary_template = file.read()
 
 
 @router.message(Command('start'))
@@ -61,33 +63,48 @@ async def get_summary(msg: Message, state: FSMContext):
     user_id = msg.from_user.id
     token = users[user_id]['token']
 
-    response = await CategoriesService.get(token, 'bank')
+    response = await CategoriesService.get_banks(token)
     balance = sum(x['amount'] for x in response.json())
 
-    response = await TransactionsService.get(token)
-    transactions = response.json()
-    expenses = 0
-    incomes = 0
-    if transactions:
-        for transaction in response.json():
-            if transaction['group'] == 'expense':
-                expenses += transaction['amount']
-            elif transaction['group'] == 'income':
-                incomes += transaction['amount']
+    incomes_fact = (await TransactionsService.get_sum(token, 'income')).json()
+    expenses_fact = (await TransactionsService.get_sum(token, 'expense')).json()
 
-    delta = incomes - expenses
-    if delta > 0:
-        delta_emoji = '🟢'
-    elif delta == 0:
-        delta_emoji = '🟡'
-    else:
-        delta_emoji = '🔴'
+    categories = (await CategoriesService.get_ei_categories(token)).json()
+    incomes_general = 0
+    expenses_general = 0
+    for category in categories:
+        if category['group'] == 'income':
+            if category['monthly_limit'] is None:
+                incomes_general += category['amount']
+            else:
+                incomes_general += (
+                    category['amount']
+                    if category['amount'] > category['monthly_limit']
+                    else category['monthly_limit'])
+        else:
+            if category['monthly_limit'] is None:
+                expenses_general += category['amount']
+            else:
+                expenses_general += (
+                    category['amount']
+                    if category['amount'] > category['monthly_limit']
+                    else category['monthly_limit'])
 
-    answer_text = f'''▫ <b>Баланс</b>: {balance} рублей
-💰 <b>Доходы</b>: {incomes} рублей
-💸 <b>Расходы</b>: {expenses} рублей
-{delta_emoji} <b>Разница</b>: {delta} рублей
-'''
+    incomes_predict = incomes_general - incomes_fact
+    expenses_predict = expenses_general - expenses_fact
+
+    answer_text = summary_template.format(
+        balance=balance,
+        incomes_fact=incomes_fact,
+        incomes_predict=incomes_predict,
+        incomes_general=incomes_general,
+        expenses_fact=expenses_fact,
+        expenses_predict=expenses_predict,
+        expenses_general=expenses_general,
+        delta_fact=incomes_fact - expenses_fact,
+        delta_predict=incomes_predict - expenses_predict,
+        delta_general=incomes_general - expenses_general
+    )
 
     await msg.answer(answer_text, reply_markup=kb.main_menu())
     await state.clear()

@@ -10,18 +10,18 @@ class TransactionsService:
 
     @classmethod
     async def add(
-            cls, token: str, id_category_from: int, id_category_to: int,
-            amount: float | int, date: datetime.date, note: str | None = None,
-            **kwargs
+            cls, token: str, group: str, id_bank: int, id_destination: int,
+            amount: float | int, date: datetime.date, note: str = ''
     ):
         data = {
-            'id_category_from': id_category_from,
-            'id_category_to': id_category_to,
+            'group': group,
+            'bank_id': id_bank,
+            'destination_id': id_destination,
             'amount': amount,
-            'date': date
+            'date': date,
+            # 'note': note
         }
-        if note:
-            data['note'] = note
+
         async with httpx.AsyncClient() as ac:
             response = await ac.post(
                 base_url + cls.prefix,
@@ -55,6 +55,15 @@ class TransactionsService:
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
                 base_url + cls.prefix + url,
+                cookies={'CoinKeeper': token}
+            )
+            return response
+
+    @classmethod
+    async def get_sum(cls, token, group: str):
+        async with httpx.AsyncClient() as ac:
+            response = await ac.get(
+                base_url + cls.prefix + f'sum?group={group}',
                 cookies={'CoinKeeper': token}
             )
             return response

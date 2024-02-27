@@ -16,12 +16,12 @@ def add_user(user_id: int, name: str):
 
 def get_user(user_id: int):
     with SessionLocal() as db:
-        return db.get(models.User, user_id)
+        return db.get_banks(models.User, user_id)
 
 
 def get_balance(user_id: int) -> int:
     with SessionLocal() as db:
-        res = db.get(models.User, user_id)
+        res = db.get_banks(models.User, user_id)
         return res.balance
 
 

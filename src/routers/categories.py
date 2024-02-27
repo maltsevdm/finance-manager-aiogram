@@ -98,7 +98,7 @@ async def get_categories(callback: CallbackQuery, state: FSMContext):
     token = users[user_id]['token']
     await state.update_data(group=group)
 
-    response = await CategoriesService.get(token, group)
+    response = await CategoriesService.get_banks(token, group)
     assert response.status_code == 200
 
     categories_data = response.json()

@@ -3,8 +3,8 @@ import datetime
 from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, \
-    CallbackQuery
+from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
+                           CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.services.categories import CategoriesService
@@ -90,28 +90,25 @@ async def add_transaction(msg: Message, state: FSMContext):
 
 @router.callback_query(AddTransaction.choosing_group,
                        F.data.startswith('transaction_'))
-async def choice_category_from(callback: CallbackQuery, state: FSMContext):
+async def choice_bank(callback: CallbackQuery, state: FSMContext):
     group = callback.data.split('_')[1]
     user_id = callback.from_user.id
     token = users[user_id]['token']
     answer_text = (await state.get_data())['answer_text']
     await state.update_data(group=group)
-
-    if group == 'income':
-        response = await CategoriesService.get(token, 'income')
-    else:
-        response = await CategoriesService.get(token, 'bank')
+    
+    response = await CategoriesService.get_banks(token)
 
     assert response.status_code == 200
 
-    categories_data = response.json()
-    categories_for_kb = {category['id']: category['name']
-                         for category in categories_data}
+    banks_data = response.json()
+    banks_for_kb = {bank['id']: bank['name'] for bank in banks_data}
 
-    builder = from_list(categories_for_kb)
+    builder = from_list(banks_for_kb)
     answer_text += f"\n🔄 Тип: {'расход' if group == 'expense' else 'поступление' if group == 'income' else 'перевод'}"
+    
     await callback.message.edit_text(
-        answer_text + '\n\n⬆ Выберите категорию списания:',
+        answer_text + f'\n\n⬆ Выберите счёт {"поступления" if group == "income" else "списания"}:',
         reply_markup=builder.as_markup()
     )
     await state.update_data(answer_text=answer_text)
@@ -121,19 +118,19 @@ async def choice_category_from(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(AddTransaction.choosing_category_from,
                        F.data.startswith('transaction_'))
-async def choice_category_to(callback: CallbackQuery, state: FSMContext):
+async def choice_destination(callback: CallbackQuery, state: FSMContext):
     state_date = await state.get_data()
     group = state_date['group']
     answer_text = state_date['answer_text']
     user_id = callback.from_user.id
     token = users[user_id]['token']
-    id_category_from, category_from = callback.data.split('_')[1:]
-    await state.update_data(id_category_from=int(id_category_from))
+    id_bank, bank = callback.data.split('_')[1:]
+    await state.update_data(id_bank=int(id_bank))
 
-    if group == 'expense':
-        response = await CategoriesService.get(token, 'expense')
+    if group == 'transfer':
+        response = await CategoriesService.get_banks(token)
     else:
-        response = await CategoriesService.get(token, 'bank')
+        response = await CategoriesService.get_ei_categories(token, group)
 
     assert response.status_code == 200
 
@@ -143,9 +140,17 @@ async def choice_category_to(callback: CallbackQuery, state: FSMContext):
 
     builder = from_list(categories_for_kb)
 
-    answer_text += f'\n⬆ Категория списания: {category_from}'
+    if group == 'income':
+        a = 'Выберите категорию поступления'
+    elif group == 'expense':
+        a = 'Выберите категория расходов'
+    else:
+        a = 'Выберите счёт назначения'
+    
+    
+    answer_text += f'\n⬆ Счёт {"списания" if group != "income" else "поступления"}: {bank}'
     await callback.message.edit_text(
-        answer_text + '\n\n⬇ Выберите категорию назначения:',
+        answer_text + f'\n\n⬇ {a}:',
         reply_markup=builder.as_markup()
     )
     await state.update_data(answer_text=answer_text)
@@ -156,11 +161,11 @@ async def choice_category_to(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(AddTransaction.choosing_category_to,
                        F.data.startswith('transaction_'))
 async def choosing_date(callback: CallbackQuery, state: FSMContext):
-    id_category_to, category_to = callback.data.split('_')[1:]
+    id_dest, dest = callback.data.split('_')[1:]
     state_date = await state.get_data()
     answer_text = state_date['answer_text']
-    await state.update_data(id_category_to=int(id_category_to))
-    answer_text += f'\n⬇ Категория назначения: {category_to}'
+    await state.update_data(id_destination=int(id_dest))
+    answer_text += f'\n⬇ Категория назначения: {dest}'
     await callback.message.edit_text(
         answer_text + '\n\n📅 Выберите дату:',
         reply_markup=get_kb_dates())
@@ -204,7 +209,14 @@ async def send_transaction(msg: Message, state: FSMContext):
     amount = float(msg.text)
     user_id = msg.from_user.id
     token = users[user_id]['token']
-    response = await TransactionsService.add(token, amount=amount, **state_data)
+    response = await TransactionsService.add(
+        token,
+        group=state_data['group'],
+        amount=amount,
+        id_bank=state_data['id_bank'],
+        id_destination=state_data['id_destination'],
+        date=state_data['date']
+    )
 
     answer_text += f'\n💰 Сумма: {amount}'
 
