@@ -19,10 +19,10 @@ class AuthService:
         async with httpx.AsyncClient() as ac:
             response = await ac.post(
                 base_url + '/auth/register',
-                data={
-                    'username': username,
+                json={
+                    'email': email,
                     'password': password,
-                    'email': email
+                    'username': username
                 }
             )
             return response

@@ -10,7 +10,7 @@ from src.database.db import SessionLocal
 def add_user(user_id: int, name: str):
     with SessionLocal() as db:
         db_user = models.User(id=user_id, username=name)
-        db.add(db_user)
+        db.create(db_user)
         db.commit()
 
 
@@ -36,7 +36,7 @@ def update_balance(user_id: int, new_balance: int):
 def add_category(user_id: int, category_group: str, category_name: str):
     with SessionLocal() as db:
         db_category = models.Category(user_id=user_id, name=category_name, type=category_group)
-        db.add(db_category)
+        db.create(db_category)
         db.commit()
 
 
@@ -63,7 +63,7 @@ def add_expense(user_id: int, value: int) -> int:
             oper_date=datetime.date.today(),
             value=value
         )
-        db.add(db_expense)
+        db.create(db_expense)
 
         balance = get_balance(user_id)
         new_balance = balance - value

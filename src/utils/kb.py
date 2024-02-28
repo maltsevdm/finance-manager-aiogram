@@ -6,7 +6,8 @@ BT_CHANGE_BALANCE = 'Изменить баланс'
 BT_REGISTER = 'Зарегистрироваться'
 BT_LOGIN = 'Войти'
 BT_MAIN_MENU = 'Главное меню'
-BT_MANAGE_CATEGORIES = 'Управление категориями'
+BT_CATEGORIES = 'Категории'
+BT_BANKS = 'Счета'
 BT_ADD_TRANSACTION = 'Добавить транзакцию'
 BT_ADD_INCOME = 'Добавить поступление'
 BT_MY_CATEGORIES = 'Мои категории'
@@ -35,7 +36,8 @@ def main_menu():
             types.KeyboardButton(text='Аккаунт')
         ],
         [types.KeyboardButton(text=BT_ADD_TRANSACTION)],
-        [types.KeyboardButton(text=BT_MANAGE_CATEGORIES)]
+        [types.KeyboardButton(text=BT_CATEGORIES)],
+        [types.KeyboardButton(text=BT_BANKS)],
     ]
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=buttons,

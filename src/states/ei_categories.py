@@ -1,13 +1,14 @@
 from aiogram.fsm.state import StatesGroup, State
 
 
-class ManageCategory(StatesGroup):
+class ManageEiCategory(StatesGroup):
     choosing_action = State()
 
 
 class AddCategory(StatesGroup):
     choosing_group = State()
     entering_name = State()
+    entering_monthly_limit = State()
 
 
 class ChangeCategory(StatesGroup):
@@ -16,4 +17,4 @@ class ChangeCategory(StatesGroup):
     choosing_action_2 = State()
     choosing_category = State()
     entering_name = State()
-    entering_amount = State()
+    entering_monthly_limit = State()

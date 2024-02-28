@@ -1,5 +1,7 @@
 import json
 
+import secrets
+import string
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -7,21 +9,26 @@ from aiogram.types import Message
 from aiogram.utils.formatting import Text
 
 from config import cookie_key
-from src.services.categories import CategoriesService
+from src.services.categories.banks import BanksService
 from src.services.auth import AuthService
+from src.services.categories.ei_categories import EiCategoriesService
 from src.services.transactions import TransactionsService
 from src.utils import kb
-from src.routers.categories import router as categories_router
+from src.routers.ei_categories import router as ei_categories_router
+from src.routers.banks import router as banks_router
 from src.routers.auth import router as auth_router
 from src.routers.transactions import router as transactions_router
 from src.users import users
 
 router = Router()
-router.include_router(categories_router)
+router.include_router(ei_categories_router)
+router.include_router(banks_router)
 router.include_router(auth_router)
 router.include_router(transactions_router)
 
-with open('users_db.json', encoding='utf-8') as file:
+users_file = 'users_db.json'
+
+with open(users_file, encoding='utf-8') as file:
     for user, data in json.load(file).items():
         users[int(user)] = data
 
@@ -29,20 +36,15 @@ with open('src/utils/summary_template.txt', encoding='utf-8') as file:
     summary_template = file.read()
 
 
-@router.message(Command('start'))
-async def start_handler(msg: Message):
-    user_id = msg.from_user.id
-    if user_id in users:
-        content = Text(f'Привет, {users[user_id]["username"]}!.')
-        await msg.answer(**content.as_kwargs(), reply_markup=kb.main_menu())
-    else:
-        await msg.answer('Привет! Вы не авторизованы.', reply_markup=kb.auth())
+def generate_password() -> str:
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for i in range(12))
 
 
 async def auth(
         user_id: int | None = None, email: str | None = None,
         password: str | None = None
-):
+) -> str:
     if not email or not password:
         email = users[user_id]['email']
         password = users[user_id]['password']
@@ -50,6 +52,43 @@ async def auth(
     response = await AuthService.login(email, password)
     if response.status_code == 204:
         return response.cookies[cookie_key]
+
+
+@router.message(Command('start'))
+async def start_handler(msg: Message):
+    user_id = msg.from_user.id
+    username = msg.chat.username
+    first_name = msg.from_user.first_name
+
+    if user_id not in users:
+        email = username + '@gmail.com'
+        password = generate_password()
+
+        response = await AuthService.register(email, password, username)
+        if response.status_code != 201:
+            raise RuntimeError(f'Пользователь не зарегистрирован. '
+                               f'{username=}, {email=}, {password=}, '
+                               f'{response.status_code=}')
+
+        token = await auth(user_id, email, password)
+
+        users[user_id] = {
+            'email': email,
+            'password': password,
+            'username': username,
+            'token': token
+        }
+
+        with open(users_file, 'w', encoding='utf-8') as file:
+            json.dump(users, file, ensure_ascii=False, indent=4)
+    else:
+        email = users[int(user_id)]['email']
+        password = users[int(user_id)]['password']
+        token = await auth(user_id, email, password)
+        print(token)
+
+    content = Text(f'Привет, {first_name}!')
+    await msg.answer(**content.as_kwargs(), reply_markup=kb.main_menu())
 
 
 @router.message(F.text.lower() == kb.BT_MAIN_MENU.lower())
@@ -63,13 +102,13 @@ async def get_summary(msg: Message, state: FSMContext):
     user_id = msg.from_user.id
     token = users[user_id]['token']
 
-    response = await CategoriesService.get_banks(token)
+    response = await BanksService.read(token)
     balance = sum(x['amount'] for x in response.json())
 
     incomes_fact = (await TransactionsService.get_sum(token, 'income')).json()
     expenses_fact = (await TransactionsService.get_sum(token, 'expense')).json()
 
-    categories = (await CategoriesService.get_ei_categories(token)).json()
+    categories = (await EiCategoriesService.read(token)).json()
     incomes_general = 0
     expenses_general = 0
     for category in categories:

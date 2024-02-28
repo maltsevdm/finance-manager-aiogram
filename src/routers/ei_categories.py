@@ -1,13 +1,13 @@
 from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, \
-    CallbackQuery
+from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
+                           CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.services.categories.ei_categories import EiCategoriesService
 from src.utils import kb
-from src.services.categories import CategoriesService
-from src.states.categories import ManageCategory, AddCategory, ChangeCategory
+from src.states.ei_categories import ManageEiCategory, AddCategory, ChangeCategory
 from src.users import users
 
 router = Router()
@@ -26,12 +26,10 @@ def get_kb_action():
 
 def get_kb_group():
     buttons = [
-        [InlineKeyboardButton(text='Категории поступлений',
+        [InlineKeyboardButton(text='Категории доходов',
                               callback_data='category_income')],
         [InlineKeyboardButton(text='Категории расходов',
-                              callback_data='category_expense')],
-        [InlineKeyboardButton(text='Счета',
-                              callback_data='category_bank')]
+                              callback_data='category_expense')]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
@@ -41,14 +39,11 @@ def get_kb_action_change_category(group: str):
     buttons = [
         [InlineKeyboardButton(text='Изменить имя',
                               callback_data='category_changename')],
+        [InlineKeyboardButton(text='Изменить месячный лимит',
+                              callback_data='category_changemonthlylimit')],
         [InlineKeyboardButton(text='Удалить',
                               callback_data='category_remove')],
     ]
-    if group == 'bank':
-        buttons.insert(1,
-                       [InlineKeyboardButton(text='Изменить сумму',
-                                             callback_data='category_changeamount')]
-                       )
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
@@ -70,14 +65,14 @@ def from_list(data: dict, cols: int = 1) -> InlineKeyboardBuilder:
 
 
 @router.message(StateFilter(None),
-                F.text.lower() == kb.BT_MANAGE_CATEGORIES.lower())
+                F.text.lower() == kb.BT_CATEGORIES.lower())
 async def manage_categories(msg: Message, state: FSMContext):
     answer_text = 'Выберите действие:'
     await msg.answer(answer_text, reply_markup=get_kb_action())
-    await state.set_state(ManageCategory.choosing_action)
+    await state.set_state(ManageEiCategory.choosing_action)
 
 
-@router.callback_query(ManageCategory.choosing_action,
+@router.callback_query(ManageEiCategory.choosing_action,
                        F.data.startswith('category_'))
 async def choice_action(callback: CallbackQuery, state: FSMContext):
     action = callback.data.split('_')[1]
@@ -98,7 +93,7 @@ async def get_categories(callback: CallbackQuery, state: FSMContext):
     token = users[user_id]['token']
     await state.update_data(group=group)
 
-    response = await CategoriesService.get_banks(token, group)
+    response = await EiCategoriesService.read(token, group)
     assert response.status_code == 200
 
     categories_data = response.json()
@@ -106,7 +101,7 @@ async def get_categories(callback: CallbackQuery, state: FSMContext):
     if categories_data:
         builder = from_list(categories_data)
         await callback.message.edit_text(
-            f'Ваши {group}:', reply_markup=builder.as_markup())
+            f'Ваши категории {group}:', reply_markup=builder.as_markup())
         await state.set_state(ChangeCategory.choosing_category)
     else:
         await callback.message.edit_text(
@@ -133,10 +128,11 @@ async def enter_category_name(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
-    ChangeCategory.choosing_action_2, F.data == 'category_changeamount')
-async def enter_category_amount(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text('Введите новую сумму:')
-    await state.set_state(ChangeCategory.entering_amount)
+    ChangeCategory.choosing_action_2, F.data == 'category_changemonthlylimit')
+async def enter_category_monthly_limit(callback: CallbackQuery,
+                                       state: FSMContext):
+    await callback.message.edit_text('Введите новый месячный лимит:')
+    await state.set_state(ChangeCategory.entering_monthly_limit)
 
 
 @router.callback_query(ChangeCategory.choosing_action_2,
@@ -147,7 +143,7 @@ async def remove_category(callback: CallbackQuery, state: FSMContext):
     id_category = state_data['id_selected_category']
     category = state_data['selected_category']
 
-    response = await CategoriesService.remove(
+    response = await EiCategoriesService.delete(
         users[user_id]['token'], id_category)
 
     if response.status_code == 200:
@@ -168,16 +164,31 @@ async def add_category_choice_group(callback: CallbackQuery, state: FSMContext):
 
 @router.message(AddCategory.entering_name, F.text)
 async def add_category_enter_name(msg: Message, state: FSMContext):
+    name = msg.text
+    await state.update_data(name=name)
+    await msg.answer('Введите месячный лимит (0 - месячного лимит нет):',
+                     reply_markup=kb.main_menu_button())
+    await state.set_state(AddCategory.entering_monthly_limit)
+
+
+@router.message(AddCategory.entering_monthly_limit, F.text)
+async def add_category_enter_monthly_limit(msg: Message, state: FSMContext):
     state_data = await state.get_data()
     user_id = msg.from_user.id
     token = users[user_id]['token']
-    category = msg.text
 
-    response = await CategoriesService.add(
-        token, name=category, group=state_data['group'])
+    monthly_limit = msg.text
+    name = state_data['name']
+
+    response = await EiCategoriesService.create(
+        token=token,
+        name=name,
+        group=state_data['group'],
+        monthly_limit=None if int(monthly_limit) == 0 else float(monthly_limit)
+    )
 
     if response.status_code == 200:
-        await msg.answer(f'Категория {category} успешно добавлена.',
+        await msg.answer(f'Категория {name} успешно добавлена.',
                          reply_markup=kb.main_menu())
     else:
         await msg.answer(f'Ошибка! Категория не добавлена. '
@@ -193,10 +204,11 @@ async def change_category_name(msg: Message, state: FSMContext):
     id_category = state_data['id_selected_category']
     token = users[user_id]['token']
 
-    response = await CategoriesService.update(token, id_category, name=msg.text)
+    response = await EiCategoriesService.update(
+        token=token, id=id_category, name=msg.text)
 
     if response.status_code == 200:
-        await msg.answer(f'Категория {msg.text} обновлена.',
+        await msg.answer(f'Категория обновлена.',
                          reply_markup=kb.main_menu())
     else:
         await msg.answer('Категория не обновлена.',
@@ -204,18 +216,19 @@ async def change_category_name(msg: Message, state: FSMContext):
     await state.clear()
 
 
-@router.message(ChangeCategory.entering_amount, F.text)
-async def change_category_amount(msg: Message, state: FSMContext):
+@router.message(ChangeCategory.entering_monthly_limit, F.text)
+async def change_category_name(msg: Message, state: FSMContext):
+    user_id = msg.from_user.id
     state_data = await state.get_data()
     id_category = state_data['id_selected_category']
-    category = state_data['selected_category']
-    token = users[msg.from_user.id]['token']
+    token = users[user_id]['token']
 
-    response = await CategoriesService.update(token, id_category,
-                                              amount=float(msg.text))
+    response = await EiCategoriesService.update(
+        token=token, id=id_category,
+        monthly_limit=float(msg.text))
 
     if response.status_code == 200:
-        await msg.answer(f'Категория {category} обновлена.',
+        await msg.answer(f'Категория обновлена.',
                          reply_markup=kb.main_menu())
     else:
         await msg.answer('Категория не обновлена.',
