@@ -40,18 +40,22 @@ class TransactionsService:
 
     @classmethod
     async def get(
-            cls, token,
+            cls,
+            token,
+            limit: int = 5,
+            offset: int = 0,
             date_from: datetime.date | None = None,
             date_to: datetime.date | None = None
     ):
-        url = ''
+        url = f'?limit={limit}&offset={offset}'
         format = '%Y-%m-%d'
         if date_from:
             date_from_str = date_from.strftime(format)
-            url += f'?date_from={date_from_str}'
+            url += f'&date_from={date_from_str}'
         if date_to:
             date_to_str = date_to.strftime(format)
             url += f'&date_to={date_to_str}'
+
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
                 base_url + cls.prefix + url,

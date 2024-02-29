@@ -159,7 +159,7 @@ async def remove_category(callback: CallbackQuery, state: FSMContext):
         users[user_id]['token'], id_category)
 
     if response.status_code == 200:
-        await callback.message.edit_text(f'Счёт удалена.')
+        await callback.message.edit_text(f'Счёт удален.')
     else:
         await callback.message.edit_text('Счёт не удален.')
     await state.clear()

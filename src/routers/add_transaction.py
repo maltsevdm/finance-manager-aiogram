@@ -30,32 +30,6 @@ def get_kb_group():
     return keyboard
 
 
-def get_kb_categories_from():
-    buttons = [
-        [InlineKeyboardButton(text='Tinkoff S7',
-                              callback_data='transaction_tinkoff s7')],
-        [InlineKeyboardButton(text='Tinkoff Black',
-                              callback_data='transaction_tinkoff black')],
-        [InlineKeyboardButton(text='Alpha',
-                              callback_data='transaction_alpha')]
-    ]
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    return keyboard
-
-
-def get_kb_categories_to():
-    buttons = [
-        [InlineKeyboardButton(text='Продукты',
-                              callback_data='transaction_products')],
-        [InlineKeyboardButton(text='Транспорт',
-                              callback_data='transaction_transport')],
-        [InlineKeyboardButton(text='Прочее',
-                              callback_data='transaction_other')]
-    ]
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    return keyboard
-
-
 def get_kb_dates():
     buttons = [
         [InlineKeyboardButton(text='Сегодня',
@@ -79,8 +53,7 @@ def from_list(data: dict, cols: int = 1) -> InlineKeyboardBuilder:
     return builder
 
 
-@router.message(StateFilter(None),
-                F.text.lower() == kb.BT_ADD_TRANSACTION.lower())
+@router.message(F.text.lower() == kb.BT_ADD_TRANSACTION.lower())
 async def add_transaction(msg: Message, state: FSMContext):
     answer_text = '➕ Добавление транзакции\n'
     await state.update_data(answer_text=answer_text)
@@ -180,25 +153,34 @@ async def entering_amount(callback: CallbackQuery, state: FSMContext):
     state_date = await state.get_data()
     answer_text = state_date['answer_text']
     date_str = callback.data.split('_')[1]
-    if date_str == 'today':
-        date_dt_str = datetime.date.today().strftime('%Y-%m-%d')
-    elif date_str == 'yesterday':
-        date_dt_str = ((datetime.date.today() - datetime.timedelta(days=1))
-                       .strftime('%Y-%m-%d'))
+
+    if date_str in ['today', 'yesterday']:
+        if date_str == 'today':
+            date_dt_str = datetime.date.today().strftime('%Y-%m-%d')
+        else:
+            date_dt_str = ((datetime.date.today() - datetime.timedelta(days=1))
+                           .strftime('%Y-%m-%d'))
+
+        await state.update_data(date=date_dt_str)
+        await state.set_state(AddTransaction.entering_amount)
+        await callback.message.delete()
+        answer_text += f'\n📅 Дата: {date_dt_str}'
+
+        old_message = await callback.message.answer(
+            text=answer_text + '\n\n💰 Введите сумму:',
+            reply_markup=kb.main_menu_button())
+        await state.update_data(answer_text=answer_text,
+                                delete_message=old_message.message_id)
+        await callback.answer()
     else:
-        date_dt_str = '2024-01-01'
+        await callback.message.edit_text('Введите дату (гггг-мм-дд):')
+        await state.set_state(AddTransaction.entering_date)
 
-    await state.update_data(date=date_dt_str)
-    await state.set_state(AddTransaction.entering_amount)
-    await callback.message.delete()
-    answer_text += f'\n📅 Дата: {date_dt_str}'
 
-    old_message = await callback.message.answer(
-        text=answer_text + '\n\n💰 Введите сумму:',
-        reply_markup=kb.main_menu_button())
-    await state.update_data(answer_text=answer_text,
-                            delete_message=old_message.message_id)
-    await callback.answer()
+@router.message(AddTransaction.entering_date, F.text)
+async def entering_date(msg: Message, state: FSMContext):
+    date_str = msg.text
+    date_dt_str = datetime.datetime.strptime(date_str,)
 
 
 @router.message(AddTransaction.entering_amount, F.text)
