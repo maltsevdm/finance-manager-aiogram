@@ -1,3 +1,4 @@
+import datetime
 import json
 
 import secrets
@@ -13,12 +14,13 @@ from src.services.categories.banks import BanksService
 from src.services.auth import AuthService
 from src.services.categories.ei_categories import EiCategoriesService
 from src.services.transactions import TransactionsService
-from src.utils import kb
+from src.utils import kb, utils
 from src.routers.ei_categories import router as ei_categories_router
 from src.routers.banks import router as banks_router
 from src.routers.auth import router as auth_router
 from src.routers.add_transaction import router as transactions_router
-from src.routers.transactions_history import router as transactions_history_router
+from src.routers.transactions_history import (
+    router as transactions_history_router)
 from src.users import users
 
 router = Router()
@@ -107,10 +109,28 @@ async def get_summary(msg: Message, state: FSMContext):
     response = await BanksService.read(token)
     balance = sum(x['amount'] for x in response.json())
 
-    incomes_fact = (await TransactionsService.get_sum(token, 'income')).json()
-    expenses_fact = (await TransactionsService.get_sum(token, 'expense')).json()
+    start_month_date = utils.get_start_month_date()
 
-    categories = (await EiCategoriesService.read(token)).json()
+    incomes_fact = (await TransactionsService.get_sum(
+        token,
+        group='income',
+        date_from=start_month_date,
+        date_to=datetime.date.today()
+    )).json()
+
+    expenses_fact = (await TransactionsService.get_sum(
+        token,
+        group='expense',
+        date_from=start_month_date,
+        date_to=datetime.date.today()
+    )).json()
+
+    categories = (await EiCategoriesService.read(
+            token,
+            date_from=utils.get_start_month_date(),
+            date_to=datetime.date.today()
+    )).json()
+
     incomes_general = 0
     expenses_general = 0
     for category in categories:

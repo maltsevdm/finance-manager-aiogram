@@ -1,7 +1,6 @@
 import datetime
 
 from aiogram import Router, F
-from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
                            CallbackQuery)
@@ -149,9 +148,7 @@ async def choosing_date(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(AddTransaction.choosing_date,
                        F.data.startswith('transaction_'))
-async def entering_amount(callback: CallbackQuery, state: FSMContext):
-    state_date = await state.get_data()
-    answer_text = state_date['answer_text']
+async def pre_entering_amount(callback: CallbackQuery, state: FSMContext):
     date_str = callback.data.split('_')[1]
 
     if date_str in ['today', 'yesterday']:
@@ -160,27 +157,38 @@ async def entering_amount(callback: CallbackQuery, state: FSMContext):
         else:
             date_dt_str = ((datetime.date.today() - datetime.timedelta(days=1))
                            .strftime('%Y-%m-%d'))
+        await entering_amount(callback, state, date_dt_str)
 
-        await state.update_data(date=date_dt_str)
-        await state.set_state(AddTransaction.entering_amount)
-        await callback.message.delete()
-        answer_text += f'\n📅 Дата: {date_dt_str}'
-
-        old_message = await callback.message.answer(
-            text=answer_text + '\n\n💰 Введите сумму:',
-            reply_markup=kb.main_menu_button())
-        await state.update_data(answer_text=answer_text,
-                                delete_message=old_message.message_id)
-        await callback.answer()
     else:
         await callback.message.edit_text('Введите дату (гггг-мм-дд):')
+        await state.update_data(callback=callback)
         await state.set_state(AddTransaction.entering_date)
 
 
 @router.message(AddTransaction.entering_date, F.text)
 async def entering_date(msg: Message, state: FSMContext):
+    state_date = await state.get_data()
     date_str = msg.text
-    date_dt_str = datetime.datetime.strptime(date_str,)
+    datetime.datetime.strptime(date_str, '%Y-%m-%d')
+    await entering_amount(state_date['callback'], state, date_str)
+
+
+async def entering_amount(
+        callback: CallbackQuery, state: FSMContext, date_dt_str: str
+):
+    state_date = await state.get_data()
+    answer_text = state_date['answer_text']
+    await state.update_data(date=date_dt_str)
+    await state.set_state(AddTransaction.entering_amount)
+    await callback.message.delete()
+    answer_text += f'\n📅 Дата: {date_dt_str}'
+
+    old_message = await callback.message.answer(
+        text=answer_text + '\n\n💰 Введите сумму:',
+        reply_markup=kb.main_menu_button())
+    await state.update_data(answer_text=answer_text,
+                            delete_message=old_message.message_id)
+    await callback.answer()
 
 
 @router.message(AddTransaction.entering_amount, F.text)

@@ -3,6 +3,10 @@ import datetime
 import httpx
 
 from src.services.config import base_url
+from src.utils.utils import generate_query_params
+
+def filter_by_none(data: dict):
+    return dict(filter(lambda x: x[1] is not None, data.items()))
 
 
 class TransactionsService:
@@ -64,10 +68,19 @@ class TransactionsService:
             return response
 
     @classmethod
-    async def get_sum(cls, token, group: str):
+    async def get_sum(
+            cls,
+            token,
+            group: str,
+            date_from: datetime.date | None = None,
+            date_to: datetime.date | None = None
+    ):
+        params = {'group': group, 'date_from': date_from, 'date_to': date_to}
+        params = filter_by_none(params)
+
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
-                base_url + cls.prefix + f'sum?group={group}',
+                base_url + cls.prefix + 'sum' + generate_query_params(**params),
                 cookies={'CoinKeeper': token}
             )
             return response
