@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from aiogram.utils.formatting import Text
 
-from config import cookie_key
+from src.services.config import cookie_key
 from src.services.categories.banks import BanksService
 from src.services.auth import AuthService
 from src.services.categories.ei_categories import EiCategoriesService

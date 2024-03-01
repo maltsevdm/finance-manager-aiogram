@@ -7,7 +7,7 @@ from aiogram.types import Message
 
 from src.users import users
 from src.utils import kb
-from config import cookie_key
+from src.services.config import cookie_key
 from src.services.auth import AuthService
 from src.states.auth import Login
 
