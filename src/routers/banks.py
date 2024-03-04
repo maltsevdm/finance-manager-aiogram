@@ -11,6 +11,12 @@ from src.users import users
 
 router = Router()
 
+bank_types = {
+    'cash': 'Наличка',
+    'credit_card': 'Кредитная карта',
+    'debit_card': 'Дебетовая карта'
+}
+
 
 def get_kb_action():
     buttons = [
@@ -50,6 +56,8 @@ def get_kb_action_change_bank(group: str):
                                                 callback_data='change_credit_card_balance')])
         buttons.insert(2, [InlineKeyboardButton(text='Изменить кредитный лимит',
                                                 callback_data='change_credit_card_limit')])
+    buttons.append([InlineKeyboardButton(text='↩ Назад',
+                                         callback_data='back_to_banks')])
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
@@ -66,8 +74,19 @@ def from_list(data: dict, cols: int = 1) -> InlineKeyboardBuilder:
     return builder
 
 
+def get_description(item: dict) -> str:
+    description = f'''<b>{item['name']}</b> 
+    Тип: <i>{bank_types[item['group']]}</i>
+    Ваши деньги: <i>{item['amount']}</i>'''
+    if item['group'] == 'credit_card':
+        description += f'''\n    Баланс карты: <i>{item['credit_card_balance']}</i>
+    Кредитный лимит: <i>{item['credit_card_limit']}</i>'''
+    return description
+
+
 @router.message(F.text.lower() == kb.BT_BANKS.lower())
-async def manage_banks(msg: Message, state: FSMContext):
+@router.callback_query(F.data == 'back_to_banks')
+async def manage_banks(msg: Message | CallbackQuery, state: FSMContext):
     user_id = msg.from_user.id
     token = users[user_id]['token']
 
@@ -83,19 +102,8 @@ async def manage_banks(msg: Message, state: FSMContext):
         await state.update_data(banks=banks_dict)
         answer_text = '<b>Ваши счета</b>'
 
-        bank_types = {
-            'cash': 'Наличка',
-            'credit_card': 'Кредитная карта',
-            'debit_card': 'Дебетовая карта'
-        }
-
         for bank in banks_data:
-            answer_text += f'''\n\n<b>{bank['name']}</b> 
-Тип: {bank_types[bank['group']]}
-Ваши деньги: {bank['amount']}'''
-            if bank['group'] == 'credit_card':
-                answer_text += f'''\nБаланс карты: {bank['credit_card_balance']}
-Кредитный лимит: {bank['credit_card_limit']}'''
+            answer_text += '\n\n' + get_description(bank)
 
         answer_text += '\n\nВыберите счёт для редактирования.'
 
@@ -106,8 +114,12 @@ async def manage_banks(msg: Message, state: FSMContext):
         )
         builder.adjust(1)
 
-        await msg.answer(
-            answer_text, reply_markup=builder.as_markup())
+        if isinstance(msg, CallbackQuery):
+            await msg.message.edit_text(
+                answer_text, reply_markup=builder.as_markup())
+        else:
+            await msg.answer(
+                answer_text, reply_markup=builder.as_markup())
         await state.set_state(ManageBank.choosing_action)
     else:
         await msg.answer('Вы ещё не добавили ни одного счёта.')
@@ -119,6 +131,7 @@ async def choice_action(callback: CallbackQuery, state: FSMContext):
     answer_text = 'В какую группу добавить счёт?'
     await state.set_state(AddBank.choosing_group)
     await callback.message.edit_text(answer_text, reply_markup=get_kb_group())
+    await callback.answer()
 
 
 @router.callback_query(ManageBank.choosing_action, F.data.startswith('edit_'))
@@ -126,44 +139,34 @@ async def update_category(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     banks = state_data['banks']
     id_bank = callback.data.split('_')[1]
-    group = banks[int(id_bank)]['group']
+    bank = banks[int(id_bank)]
+    group = bank['group']
+    answer_text = get_description(bank) + '\n\nЧто хотите сделать со счётом?'
     await state.update_data(id_selected_category=id_bank)
     await callback.message.edit_text(
-        f'Что хотите сделать со счётом?',
-        reply_markup=get_kb_action_change_bank(group))
-    await state.set_state(ChangeBank.choosing_action_2)
+        answer_text, reply_markup=get_kb_action_change_bank(group))
+    await state.set_state(ChangeBank.choosing_action)
+    await callback.answer()
 
 
-@router.callback_query(ChangeBank.choosing_action_2, F.data == 'change_name')
-async def enter_bank_name(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text('Введите новое имя:')
-    await state.set_state(ChangeBank.entering_name)
+@router.callback_query(ChangeBank.choosing_action, F.data.startswith('change_'))
+async def enter_new_value(callback: CallbackQuery, state: FSMContext):
+    attrs = {
+        'name': 'новое имя',
+        'amount': 'новую сумму',
+        'credit_card_balance': 'новый баланс карты',
+        'credit_card_limit': 'новый кредитный лимит',
+    }
+
+    _, *attr = callback.data.split('_')
+    attr = '_'.join(attr)
+    await state.update_data(attr=attr)
+    await callback.message.edit_text(f'Введите {attrs[attr]}:')
+    await state.set_state(ChangeBank.entering_new_value)
+    await callback.answer()
 
 
-@router.callback_query(ChangeBank.choosing_action_2, F.data == 'change_amount')
-async def enter_bank_amount(callback: CallbackQuery,
-                            state: FSMContext):
-    await callback.message.edit_text('Введите новую сумму:')
-    await state.set_state(ChangeBank.entering_amount)
-
-
-@router.callback_query(
-    ChangeBank.choosing_action_2, F.data == 'change_credit_card_balance')
-async def enter_bank_credit_card_balance(callback: CallbackQuery,
-                                         state: FSMContext):
-    await callback.message.edit_text('Введите новый баланс:')
-    await state.set_state(ChangeBank.entering_credit_card_balance)
-
-
-@router.callback_query(
-    ChangeBank.choosing_action_2, F.data == 'change_credit_card_limit')
-async def enter_bank_credit_card_limit(callback: CallbackQuery,
-                                       state: FSMContext):
-    await callback.message.edit_text('Введите новый кредитный лимит:')
-    await state.set_state(ChangeBank.entering_credit_card_limit)
-
-
-@router.callback_query(ChangeBank.choosing_action_2, F.data == 'remove')
+@router.callback_query(ChangeBank.choosing_action, F.data == 'remove')
 async def remove_category(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     state_data = await state.get_data()
@@ -177,6 +180,7 @@ async def remove_category(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.edit_text('Счёт не удален.')
     await state.clear()
+    await callback.answer()
 
 
 @router.callback_query(AddBank.choosing_group)
@@ -186,6 +190,7 @@ async def add_bank_choice_group(callback: CallbackQuery, state: FSMContext):
     await state.update_data(group=group)
     await callback.message.edit_text('Введите имя счёта:')
     await state.set_state(AddBank.entering_name)
+    await callback.answer()
 
 
 @router.message(AddBank.entering_name, F.text)
@@ -263,72 +268,24 @@ async def add_category_enter_credit_card_limit(msg: Message, state: FSMContext):
     await state.clear()
 
 
-@router.message(ChangeBank.entering_name, F.text)
+@router.message(ChangeBank.entering_new_value, F.text)
 async def change_bank_name(msg: Message, state: FSMContext):
+    type_conversion_funcs = {
+        'name': str,
+        'amount': float,
+        'credit_card_balance': float,
+        'credit_card_limit': float
+    }
+
     user_id = msg.from_user.id
     state_data = await state.get_data()
     id_category = state_data['id_selected_category']
+    attr = state_data['attr']
     token = users[user_id]['token']
 
+    type_conversion_func = type_conversion_funcs[attr]
     response = await BanksService.update(
-        token=token, id=id_category, name=msg.text)
-
-    if response.status_code == 200:
-        await msg.answer(f'Счёт обновлен.',
-                         reply_markup=kb.main_menu())
-    else:
-        await msg.answer('Счёт не обновлен.',
-                         reply_markup=kb.main_menu())
-    await state.clear()
-
-
-@router.message(ChangeBank.entering_amount, F.text)
-async def change_bank_amount(msg: Message, state: FSMContext):
-    user_id = msg.from_user.id
-    state_data = await state.get_data()
-    id_category = state_data['id_selected_category']
-    token = users[user_id]['token']
-
-    response = await BanksService.update(
-        token=token, id=id_category, amount=float(msg.text))
-
-    if response.status_code == 200:
-        await msg.answer(f'Счёт обновлен.',
-                         reply_markup=kb.main_menu())
-    else:
-        await msg.answer('Счёт не обновлен.',
-                         reply_markup=kb.main_menu())
-    await state.clear()
-
-
-@router.message(ChangeBank.entering_credit_card_balance, F.text)
-async def change_credit_card_balance(msg: Message, state: FSMContext):
-    user_id = msg.from_user.id
-    state_data = await state.get_data()
-    id_category = state_data['id_selected_category']
-    token = users[user_id]['token']
-
-    response = await BanksService.update(
-        token=token, id=id_category, credit_card_balance=float(msg.text))
-
-    if response.status_code == 200:
-        await msg.answer(f'Счёт обновлен.',
-                         reply_markup=kb.main_menu())
-    else:
-        await msg.answer('Счёт не обновлен.',
-                         reply_markup=kb.main_menu())
-    await state.clear()
-
-
-@router.message(ChangeBank.entering_credit_card_limit, F.text)
-async def change_credit_card_limit(msg: Message, state: FSMContext):
-    user_id = msg.from_user.id
-    state_data = await state.get_data()
-    id_category = state_data['id_selected_category']
-    token = users[user_id]['token']
-
-    response = await BanksService.update(
-        token=token, id=id_category, credit_card_limit=float(msg.text))
+        token=token, id=id_category, name=type_conversion_func(msg.text))
 
     if response.status_code == 200:
         await msg.answer(f'Счёт обновлен.',

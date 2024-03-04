@@ -14,11 +14,5 @@ class AddBank(StatesGroup):
 
 
 class ChangeBank(StatesGroup):
-    choosing_group = State()
-    choosing_action_1 = State()
-    choosing_action_2 = State()
-    choosing_bank = State()
-    entering_name = State()
-    entering_amount = State()
-    entering_credit_card_balance = State()
-    entering_credit_card_limit = State()
+    choosing_action = State()
+    entering_new_value = State()
