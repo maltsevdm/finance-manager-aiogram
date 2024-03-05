@@ -1,6 +1,7 @@
 import datetime
 
 import httpx
+from httpx import Response
 
 from src.services.config import base_url
 from src.utils.utils import generate_query_params
@@ -39,8 +40,14 @@ class TransactionsService:
         ...
 
     @classmethod
-    async def update(cls):
-        ...
+    async def update(cls, token: str, id: int, **data) -> Response:
+        async with httpx.AsyncClient() as ac:
+            response = await ac.patch(
+                base_url + cls.prefix + str(id),
+                json=data,
+                cookies={'CoinKeeper': token}
+            )
+            return response
 
     @classmethod
     async def get(

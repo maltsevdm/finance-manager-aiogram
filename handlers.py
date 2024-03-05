@@ -6,7 +6,7 @@ import string
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.utils.formatting import Text
 
 from src.services.config import cookie_key
@@ -95,9 +95,13 @@ async def start_handler(msg: Message):
     await msg.answer(**content.as_kwargs(), reply_markup=kb.main_menu())
 
 
+@router.callback_query(F.data == 'exit')
 @router.message(F.text.lower() == kb.BT_MAIN_MENU.lower())
-async def go_to_main_menu(msg: Message, state: FSMContext):
-    await msg.answer('Вы в главном меню.', reply_markup=kb.main_menu())
+async def go_to_main_menu(msg: Message | CallbackQuery, state: FSMContext):
+    if isinstance(msg, CallbackQuery):
+        await msg.message.edit_text('Вы в главном меню.')
+    else:
+        await msg.answer('Вы в главном меню.', reply_markup=kb.main_menu())
     await state.clear()
 
 

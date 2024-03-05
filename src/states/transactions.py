@@ -21,4 +21,5 @@ class AddIncome(StatesGroup):
 
 
 class EditTransaction(StatesGroup):
-    changing = State()
+    choosing_action = State()
+    entering_new_value = State()
