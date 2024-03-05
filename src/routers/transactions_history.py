@@ -1,39 +1,17 @@
-import datetime
-
 from aiogram import Router, F
-from aiogram.filters import StateFilter
+
 from aiogram.fsm.context import FSMContext
 
 from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
                            CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.services.categories.banks import BanksService
-from src.services.categories.ei_categories import EiCategoriesService
 from src.services.transactions import TransactionsService
-from src.states.transactions import AddTransaction, EditTransaction
+from src.states.transactions import EditTransaction
 from src.users import users
 from src.utils import kb
 
 router = Router()
-
-
-def from_list(data: list, cols: int = 1) -> InlineKeyboardBuilder:
-    builder = InlineKeyboardBuilder()
-    for el in data:
-        id = el['id']
-        date = el['date']
-        amount = el['amount']
-        bank_name = el['bank_name']
-        dest_name = el['destination_name']
-        group = el['group']
-        direction = '<-' if group == 'income' else '->'
-        text = f'{date} | {bank_name} {direction} {dest_name} | {amount} руб.'
-
-        builder.add(
-            InlineKeyboardButton(text=text, callback_data=f'transaction_{id}'))
-    builder.adjust(cols)
-    return builder
 
 
 def kb_navigation(li: list):
@@ -46,7 +24,7 @@ def kb_navigation(li: list):
     builder.add(
         InlineKeyboardButton(text='Ранее', callback_data='earlier'),
         InlineKeyboardButton(text='Позднее', callback_data='later'),
-        InlineKeyboardButton(text='Выход', callback_data='exit')
+        InlineKeyboardButton(text=kb.BT_EXIT, callback_data='exit')
     )
     builder.adjust(cols)
     return builder
@@ -65,15 +43,14 @@ def kb_action():
         [InlineKeyboardButton(text='Изменить комментарий',
                               callback_data='change_note')],
         [InlineKeyboardButton(text='Удалить', callback_data='remove')],
-        [InlineKeyboardButton(text='🔙 Назад', callback_data='back'),
-         InlineKeyboardButton(text='❌ Выход', callback_data='exit')]
+        [InlineKeyboardButton(text=kb.BT_GO_BACK, callback_data='back'),
+         InlineKeyboardButton(text=kb.BT_EXIT, callback_data='exit')]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
 
-@router.message(StateFilter(None),
-                F.text.lower() == kb.BT_TRANSACTIONS_HISTORY.lower())
+@router.message(F.text.lower() == kb.BT_TRANSACTIONS_HISTORY.lower())
 async def get_history(msg: Message, state: FSMContext):
     answer_text = 'История транзакций:'
     user_id = msg.from_user.id

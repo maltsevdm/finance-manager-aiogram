@@ -8,6 +8,7 @@ from src.services.categories.banks import BanksService
 from src.utils import kb
 from src.states.banks import AddBank, ChangeBank, ManageBank
 from src.users import users
+from src.utils.kb import BT_ADD, BT_GO_BACK
 
 router = Router()
 
@@ -16,17 +17,6 @@ bank_types = {
     'credit_card': 'Кредитная карта',
     'debit_card': 'Дебетовая карта'
 }
-
-
-def get_kb_action():
-    buttons = [
-        [InlineKeyboardButton(text='Мои счета',
-                              callback_data='my')],
-        [InlineKeyboardButton(text='Добавить счёт',
-                              callback_data='add')]
-    ]
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    return keyboard
 
 
 def get_kb_group():
@@ -56,7 +46,7 @@ def get_kb_action_change_bank(group: str):
                                                 callback_data='change_credit_card_balance')])
         buttons.insert(2, [InlineKeyboardButton(text='Изменить кредитный лимит',
                                                 callback_data='change_credit_card_limit')])
-    buttons.append([InlineKeyboardButton(text='↩ Назад',
+    buttons.append([InlineKeyboardButton(text=BT_GO_BACK,
                                          callback_data='back_to_banks')])
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
@@ -110,9 +100,9 @@ async def manage_banks(msg: Message | CallbackQuery, state: FSMContext):
         builder = from_list(banks_data)
 
         builder.add(
-            InlineKeyboardButton(text='➕ Добавить счёт', callback_data='add')
+            InlineKeyboardButton(text=BT_ADD, callback_data='add')
         )
-        builder.adjust(1)
+        builder.adjust(2)
 
         if isinstance(msg, CallbackQuery):
             await msg.message.edit_text(
@@ -285,12 +275,10 @@ async def change_bank_name(msg: Message, state: FSMContext):
 
     type_conversion_func = type_conversion_funcs[attr]
     response = await BanksService.update(
-        token=token, id=id_category, name=type_conversion_func(msg.text))
+        token=token, id=id_category, **{attr: type_conversion_func(msg.text)})
 
     if response.status_code == 200:
-        await msg.answer(f'Счёт обновлен.',
-                         reply_markup=kb.main_menu())
+        await msg.answer(f'Счёт обновлен.', reply_markup=kb.main_menu())
     else:
-        await msg.answer('Счёт не обновлен.',
-                         reply_markup=kb.main_menu())
+        await msg.answer('Счёт не обновлен.', reply_markup=kb.main_menu())
     await state.clear()

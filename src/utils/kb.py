@@ -19,6 +19,9 @@ BT_CATEGORIES_EXPENSE = 'Категории расходов'
 BT_CATEGORIES_BANK = 'Счета'
 BT_CATEGORIES_ALL = 'Все'
 BT_TRANSACTIONS_HISTORY = 'История транзакций'
+BT_GO_BACK = '🔙 Назад'
+BT_ADD = '➕ Добавить'
+BT_EXIT = '❌ Выход'
 
 
 def main_menu():
