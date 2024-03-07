@@ -19,6 +19,7 @@ BT_CATEGORIES_EXPENSE = 'Категории расходов'
 BT_CATEGORIES_BANK = 'Счета'
 BT_CATEGORIES_ALL = 'Все'
 BT_TRANSACTIONS_HISTORY = 'История транзакций'
+BT_PROFILE = 'Мой профиль'
 BT_GO_BACK = '🔙 Назад'
 BT_ADD = '➕ Добавить'
 BT_EXIT = '❌ Выход'
@@ -28,7 +29,7 @@ def main_menu():
     buttons = [
         [
             types.KeyboardButton(text=BT_SUMMARY),
-            types.KeyboardButton(text='Аккаунт')
+            types.KeyboardButton(text=BT_PROFILE)
         ],
         [types.KeyboardButton(text=BT_ADD_TRANSACTION)],
         [types.KeyboardButton(text=BT_CATEGORIES),

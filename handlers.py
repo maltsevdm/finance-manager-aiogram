@@ -17,6 +17,7 @@ from src.routers.ei_categories import router as ei_categories_router
 from src.routers.banks import router as banks_router
 from src.routers.auth import router as auth_router
 from src.routers.add_transaction import router as transactions_router
+from src.routers.account import router as account_router
 from src.routers.transactions_history import (
     router as transactions_history_router)
 from src.users import users
@@ -28,6 +29,7 @@ router.include_router(banks_router)
 router.include_router(auth_router)
 router.include_router(transactions_router)
 router.include_router(transactions_history_router)
+router.include_router(account_router)
 
 users_file = 'users_db.json'
 
