@@ -36,11 +36,16 @@ class TransactionsService:
             return response
 
     @classmethod
-    async def remove(cls):
-        ...
+    async def delete(cls, token: str, id: int) -> Response:
+        async with httpx.AsyncClient() as ac:
+            response = await ac.delete(
+                base_url + cls.prefix + str(id),
+                cookies={'CoinKeeper': token}
+            )
+            return response
 
     @classmethod
-    async def update(cls, token: str, id: int, **data) -> Response:
+    async def update(cls, token: str, id: int, data: dict) -> Response:
         async with httpx.AsyncClient() as ac:
             response = await ac.patch(
                 base_url + cls.prefix + str(id),
@@ -80,9 +85,15 @@ class TransactionsService:
             token,
             group: str,
             date_from: datetime.date | None = None,
-            date_to: datetime.date | None = None
+            date_to: datetime.date | None = None,
+            status: str | None = None
     ):
-        params = {'group': group, 'date_from': date_from, 'date_to': date_to}
+        params = {
+            'group': group,
+            'date_from': date_from,
+            'date_to': date_to,
+            'status': status
+        }
         params = filter_by_none(params)
 
         async with httpx.AsyncClient() as ac:

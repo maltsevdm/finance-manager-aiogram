@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import date, datetime, timedelta
 
 
@@ -30,3 +32,13 @@ def generate_query_params(**kwargs) -> str:
         url += sym + f'{name}={value}'
         sym = '&'
     return url
+
+
+def validate_date(date: str) -> str:
+    datetime.strptime(date, '%Y-%m-%d')
+    return date
+
+
+def generate_password() -> str:
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for i in range(12))

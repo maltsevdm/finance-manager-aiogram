@@ -1,8 +1,6 @@
 import datetime
 import json
 
-import secrets
-import string
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -22,6 +20,7 @@ from src.routers.add_transaction import router as transactions_router
 from src.routers.transactions_history import (
     router as transactions_history_router)
 from src.users import users
+from src.utils.utils import generate_password
 
 router = Router()
 router.include_router(ei_categories_router)
@@ -38,11 +37,6 @@ with open(users_file, encoding='utf-8') as file:
 
 with open('src/utils/summary_template.txt', encoding='utf-8') as file:
     summary_template = file.read()
-
-
-def generate_password() -> str:
-    alphabet = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alphabet) for i in range(12))
 
 
 async def auth(
@@ -99,7 +93,8 @@ async def start_handler(msg: Message):
 @router.message(F.text.lower() == kb.BT_MAIN_MENU.lower())
 async def go_to_main_menu(msg: Message | CallbackQuery, state: FSMContext):
     if isinstance(msg, CallbackQuery):
-        await msg.message.edit_text('Вы в главном меню.')
+        await msg.message.delete()
+        await msg.answer('Вы в главном меню.', show_alert=False)
     else:
         await msg.answer('Вы в главном меню.', reply_markup=kb.main_menu())
     await state.clear()
@@ -132,7 +127,7 @@ async def get_summary(msg: Message, state: FSMContext):
     categories = (await EiCategoriesService.read(
             token,
             date_from=utils.get_start_month_date(),
-            date_to=datetime.date.today()
+            date_to=utils.get_end_month_date()
     )).json()
 
     incomes_general = 0
