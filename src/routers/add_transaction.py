@@ -6,11 +6,11 @@ from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
                            CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.database.pymongoAPI import users_db
 from src.services.categories.banks import BanksService
 from src.services.categories.ei_categories import EiCategoriesService
 from src.services.transactions import TransactionsService
 from src.states.transactions import AddTransaction
-from src.users import users
 from src.utils import kb
 
 router = Router()
@@ -66,7 +66,7 @@ async def add_transaction(msg: Message, state: FSMContext):
 async def choice_bank(callback: CallbackQuery, state: FSMContext):
     group = callback.data.split('_')[1]
     user_id = callback.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
     answer_text = (await state.get_data())['answer_text']
     await state.update_data(group=group)
 
@@ -96,7 +96,7 @@ async def choice_destination(callback: CallbackQuery, state: FSMContext):
     group = state_date['group']
     answer_text = state_date['answer_text']
     user_id = callback.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
     id_bank, bank = callback.data.split('_')[1:]
     await state.update_data(id_bank=int(id_bank))
 
@@ -198,7 +198,8 @@ async def send_transaction(msg: Message, state: FSMContext):
     delete_message = state_data['delete_message']
     amount = float(msg.text)
     user_id = msg.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
+
     response = await TransactionsService.add(
         token,
         group=state_data['group'],

@@ -6,11 +6,11 @@ from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
                            CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.database.pymongoAPI import users_db
 from src.services.categories.banks import BanksService
 from src.services.categories.ei_categories import EiCategoriesService
 from src.services.transactions import TransactionsService
 from src.states.transactions import EditTransaction
-from src.users import users
 from src.utils import kb
 from src.utils.utils import validate_date
 
@@ -101,7 +101,7 @@ def from_list(data: dict, cols: int = 1) -> InlineKeyboardBuilder:
 async def get_history(msg: Message | CallbackQuery, state: FSMContext):
     answer_text = 'История транзакций:'
     user_id = msg.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     response = await TransactionsService.get(token, limit=10)
     assert response.status_code == 200
@@ -177,7 +177,7 @@ async def choice_new_bank_or_dest(callback: CallbackQuery, state: FSMContext):
     transaction = state_date['transaction']
     group = transaction['group']
     user_id = callback.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     _, attr = callback.data.split('_')
 
@@ -241,9 +241,9 @@ async def remove_transaction(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     state_data = await state.get_data()
     transaction = state_data['transaction']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
-    response = await TransactionsService.delete(
-        users[user_id]['token'], transaction['id'])
+    response = await TransactionsService.delete(token, transaction['id'])
 
     answer_text = f'Транзакция{"" if response.status_code == 200 else " не"} удалена.'
     await callback.message.edit_text(answer_text)
@@ -254,7 +254,7 @@ async def remove_transaction(callback: CallbackQuery, state: FSMContext):
 @router.message(EditTransaction.entering_new_value)
 async def edit_transaction_attr(msg: Message, state: FSMContext):
     user_id = msg.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
     state_data = await state.get_data()
     attr = state_data['attr']
     new_value = msg.text
@@ -286,7 +286,7 @@ async def choice_new_category(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     attr = state_data['change']
     user_id = callback.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
     attr = 'bank_id' if attr == 'bank' else 'destination_id'
 
     await update_transaction(

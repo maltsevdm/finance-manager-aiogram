@@ -1,6 +1,6 @@
 import httpx
 
-from src.services.config import base_url
+from src.config import API_BASE_URL
 
 
 class AuthService:
@@ -9,7 +9,7 @@ class AuthService:
     async def login(email: str, password: str):
         async with httpx.AsyncClient() as ac:
             response = await ac.post(
-                base_url + '/auth/jwt/login',
+                API_BASE_URL + '/auth/jwt/login',
                 data={'username': email, 'password': password}
             )
             return response
@@ -18,7 +18,7 @@ class AuthService:
     async def register(email: str, password: str, username: str):
         async with httpx.AsyncClient() as ac:
             response = await ac.post(
-                base_url + '/auth/register',
+                API_BASE_URL + '/auth/register',
                 json={
                     'email': email,
                     'password': password,
@@ -31,7 +31,7 @@ class AuthService:
     async def get_profile(token: str):
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
-                base_url + '/users/me',
+                API_BASE_URL + '/users/me',
                 cookies={'value': token}
             )
             return response

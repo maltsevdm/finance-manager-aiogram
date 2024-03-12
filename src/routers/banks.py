@@ -4,10 +4,10 @@ from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
                            CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.database.pymongoAPI import users_db
 from src.services.categories.banks import BanksService
 from src.utils import kb
 from src.states.banks import AddBank, ChangeBank, ManageBank
-from src.users import users
 from src.utils.kb import BT_ADD, BT_GO_BACK
 
 router = Router()
@@ -78,7 +78,7 @@ def get_description(item: dict) -> str:
 @router.callback_query(F.data == 'back_to_banks')
 async def manage_banks(msg: Message | CallbackQuery, state: FSMContext):
     user_id = msg.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     response = await BanksService.read(token)
     assert response.status_code == 200
@@ -161,9 +161,9 @@ async def remove_category(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     state_data = await state.get_data()
     id_category = state_data['id_selected_category']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
-    response = await BanksService.delete(
-        users[user_id]['token'], id_category)
+    response = await BanksService.delete(token, id_category)
 
     if response.status_code == 200:
         await callback.message.edit_text(f'Счёт удален.')
@@ -205,7 +205,7 @@ async def add_bank_enter_amount(msg: Message, state: FSMContext):
         await state.set_state(AddBank.entering_credit_card_balance)
     else:
         user_id = msg.from_user.id
-        token = users[user_id]['token']
+        token = users_db.get_field_by_user_id(user_id, 'token')
         name = state_data['name']
 
         response = await BanksService.create(
@@ -236,7 +236,7 @@ async def add_category_enter_credit_card_limit(msg: Message, state: FSMContext):
     credit_card_limit = float(msg.text)
     state_data = await state.get_data()
     user_id = msg.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
     name = state_data['name']
 
     response = await BanksService.create(
@@ -271,7 +271,7 @@ async def change_bank_name(msg: Message, state: FSMContext):
     state_data = await state.get_data()
     id_category = state_data['id_selected_category']
     attr = state_data['attr']
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     type_conversion_func = type_conversion_funcs[attr]
     response = await BanksService.update(

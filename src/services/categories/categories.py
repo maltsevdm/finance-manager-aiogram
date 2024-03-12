@@ -4,7 +4,7 @@ from abc import ABC
 import httpx
 from httpx import Response
 
-from src.services.config import base_url
+from src.config import API_BASE_URL
 from src.utils.utils import generate_query_params
 
 
@@ -15,7 +15,7 @@ class CategoriesService(ABC):
     async def create(cls, token: str, name: str, group: str, **data):
         async with httpx.AsyncClient() as ac:
             response = await ac.post(
-                base_url + cls.prefix,
+                API_BASE_URL + cls.prefix,
                 json={'name': name, 'group': group, **data},
                 cookies={'CoinKeeper': token}
             )
@@ -47,7 +47,7 @@ class CategoriesService(ABC):
         #     url += f'{sym}date_to={date_to}'
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
-                base_url + url,
+                API_BASE_URL + url,
                 cookies={'CoinKeeper': token}
             )
             return response
@@ -58,7 +58,7 @@ class CategoriesService(ABC):
     ) -> Response:
         async with httpx.AsyncClient() as ac:
             response = await ac.patch(
-                base_url + cls.prefix + str(id),
+                API_BASE_URL + cls.prefix + str(id),
                 json=data,
                 cookies={'CoinKeeper': token}
             )
@@ -68,7 +68,7 @@ class CategoriesService(ABC):
     async def delete(cls, token: str, id: int) -> Response:
         async with httpx.AsyncClient() as ac:
             response = await ac.delete(
-                base_url + cls.prefix + str(id),
+                API_BASE_URL + cls.prefix + str(id),
                 cookies={'CoinKeeper': token}
             )
             return response

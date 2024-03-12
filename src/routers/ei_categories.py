@@ -1,15 +1,14 @@
 from aiogram import Router, F
-from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (Message, InlineKeyboardButton, InlineKeyboardMarkup,
                            CallbackQuery)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.database.pymongoAPI import users_db
 from src.services.categories.ei_categories import EiCategoriesService
 from src.utils import kb
-from src.states.ei_categories import ManageEiCategory, AddCategory, \
-    ChangeCategory
-from src.users import users
+from src.states.ei_categories import (
+    ManageEiCategory, AddCategory, ChangeCategory)
 from src.utils.kb import BT_ADD, BT_GO_BACK
 
 router = Router()
@@ -100,7 +99,7 @@ async def choice_category(callback: CallbackQuery, state: FSMContext):
         group = callback.data
         await state.update_data(group=group)
     user_id = callback.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     response = await EiCategoriesService.read(token, group=group)
     assert response.status_code == 200
@@ -165,7 +164,7 @@ async def add_category_enter_name(msg: Message, state: FSMContext):
 async def add_category_enter_monthly_limit(msg: Message, state: FSMContext):
     state_data = await state.get_data()
     user_id = msg.from_user.id
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     monthly_limit = msg.text
     name = state_data['name']
@@ -232,7 +231,7 @@ async def change_bank_name(msg: Message, state: FSMContext):
     state_data = await state.get_data()
     id_category = state_data['id_selected_category']
     attr = state_data['attr']
-    token = users[user_id]['token']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
     type_conversion_func = type_conversion_funcs[attr]
     response = await EiCategoriesService.update(
@@ -250,9 +249,9 @@ async def remove_category(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     state_data = await state.get_data()
     id_category = state_data['id_selected_category']
+    token = users_db.get_field_by_user_id(user_id, 'token')
 
-    response = await EiCategoriesService.delete(
-        users[user_id]['token'], id_category)
+    response = await EiCategoriesService.delete(token, id_category)
 
     if response.status_code == 200:
         await callback.message.edit_text(f'Категория удалена.')

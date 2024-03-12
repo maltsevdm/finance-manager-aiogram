@@ -3,7 +3,7 @@ import datetime
 import httpx
 from httpx import Response
 
-from src.services.config import base_url
+from src.config import API_BASE_URL
 from src.utils.utils import generate_query_params
 
 def filter_by_none(data: dict):
@@ -29,7 +29,7 @@ class TransactionsService:
 
         async with httpx.AsyncClient() as ac:
             response = await ac.post(
-                base_url + cls.prefix,
+                API_BASE_URL + cls.prefix,
                 json=data,
                 cookies={'CoinKeeper': token}
             )
@@ -39,7 +39,7 @@ class TransactionsService:
     async def delete(cls, token: str, id: int) -> Response:
         async with httpx.AsyncClient() as ac:
             response = await ac.delete(
-                base_url + cls.prefix + str(id),
+                API_BASE_URL + cls.prefix + str(id),
                 cookies={'CoinKeeper': token}
             )
             return response
@@ -48,7 +48,7 @@ class TransactionsService:
     async def update(cls, token: str, id: int, data: dict) -> Response:
         async with httpx.AsyncClient() as ac:
             response = await ac.patch(
-                base_url + cls.prefix + str(id),
+                API_BASE_URL + cls.prefix + str(id),
                 json=data,
                 cookies={'CoinKeeper': token}
             )
@@ -74,7 +74,7 @@ class TransactionsService:
 
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
-                base_url + cls.prefix + url,
+                API_BASE_URL + cls.prefix + url,
                 cookies={'CoinKeeper': token}
             )
             return response
@@ -98,7 +98,7 @@ class TransactionsService:
 
         async with httpx.AsyncClient() as ac:
             response = await ac.get(
-                base_url + cls.prefix + 'sum' + generate_query_params(**params),
+                API_BASE_URL + cls.prefix + 'sum' + generate_query_params(**params),
                 cookies={'CoinKeeper': token}
             )
             return response
